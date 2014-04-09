@@ -14,6 +14,8 @@ from django.conf import settings
 import os
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
+from boto.exception import S3ResponseError
+from boto.s3.connection import Location
 from datetime import timedelta
 from controller.single_instance_task import single_instance_task
 from tempfile import TemporaryFile
@@ -245,7 +247,16 @@ def regenerate_course_data_in_csv_format(course):
     if settings.AWS_ACCESS_KEY_ID != "":
         # Upload the csv file to S3 and close the StringIO object.
         conn = S3Connection(settings.AWS_ACCESS_KEY_ID, settings.AWS_SECRET_ACCESS_KEY)
-        bucket = conn.create_bucket(settings.S3_BUCKETNAME.lower())
+        #bucket = conn.create_bucket(settings.S3_BUCKETNAME.lower())
+        try:
+            bucket = conn.get_bucket(settings.S3_BUCKETNAME.lower())
+        except S3ResponseError as e:
+            if e.status == 404:
+                bucket = conn.create_bucket(settings.S3_BUCKETNAME.lower(),
+                    location=Location.APNortheast)
+            else:
+                log.error("Cannot get bucket: %s", e)
+                return
         k = Key(bucket)
         k.key = filename
         k.set_contents_from_file(tempfile_write)
