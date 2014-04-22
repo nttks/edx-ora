@@ -9,6 +9,7 @@ from ml_grading import ml_grading_util
 from controller.control_util import SubmissionControl
 
 from controller.capsules import LocationCapsule, CourseCapsule
+from random import randint
 
 log = logging.getLogger(__name__)
 
@@ -62,19 +63,19 @@ class StaffLocation(LocationCapsule):
         control = SubmissionControl(self.latest_submission())
 
         if subs_graded < control.minimum_to_use_ai or not success:
-            to_be_graded = self.pending()
-
-            finished_submission_text=self.graded_submission_text()
-
-            for tbg in to_be_graded:
-                if tbg is not None and tbg.student_response not in finished_submission_text:
-                    tbg.state = SubmissionState.being_graded
-                    tbg.next_grader_type="IN"
-                    tbg.save()
+            try:
+                count = self.pending_count()
+                if count != 0:
+                    sub = self.pending()[randint(0, count - 1)]
+                    sub.state = SubmissionState.being_graded
+                    sub.next_grader_type="IN"
+                    sub.save()
                     found = True
-                    sub_id = tbg.id
+                    sub_id = sub.id
 
                     return found, sub_id
+            except IndexError as e:
+                log.error(e)
 
         #If nothing is found, return false
         return False, 0
